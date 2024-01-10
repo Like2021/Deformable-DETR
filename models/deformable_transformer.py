@@ -138,6 +138,7 @@ class DeformableTransformer(nn.Module):
             src = src.flatten(2).transpose(1, 2)
             mask = mask.flatten(1)
             pos_embed = pos_embed.flatten(2).transpose(1, 2)
+            # 针对每一层的xy编码添加层位置信息
             lvl_pos_embed = pos_embed + self.level_embed[lvl].view(1, 1, -1)
             lvl_pos_embed_flatten.append(lvl_pos_embed)
             src_flatten.append(src)
@@ -217,7 +218,13 @@ class DeformableTransformerEncoderLayer(nn.Module):
         return src
 
     def forward(self, src, pos, reference_points, spatial_shapes, level_start_index, padding_mask=None):
+        """
+        src: 展平的各层特征
+        spatial_shapes: 各层特征图形状
+        level_start_index: 各层首特征索引
+        """
         # self attention
+        # Q: src + pos, K: reference_points, V: src
         src2 = self.self_attn(self.with_pos_embed(src, pos), reference_points, src, spatial_shapes, level_start_index, padding_mask)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
