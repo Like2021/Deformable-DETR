@@ -16,14 +16,17 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-
+/**
+ * value: [bs, Len_q, 8, 32]
+ * sampling_loc: [bs, Len_q, 1, n_levels, n_points, 2]
+*/
 at::Tensor ms_deform_attn_cuda_forward(
     const at::Tensor &value, 
     const at::Tensor &spatial_shapes,
     const at::Tensor &level_start_index,
     const at::Tensor &sampling_loc,
     const at::Tensor &attn_weight,
-    const int im2col_step)
+    const int im2col_step)  // im2col_step = 64
 {
     AT_ASSERTM(value.is_contiguous(), "value tensor has to be contiguous");
     AT_ASSERTM(spatial_shapes.is_contiguous(), "spatial_shapes tensor has to be contiguous");
@@ -47,14 +50,14 @@ at::Tensor ms_deform_attn_cuda_forward(
     const int num_query = sampling_loc.size(1);
     const int num_point = sampling_loc.size(4);
 
-    const int im2col_step_ = std::min(batch, im2col_step);
+    const int im2col_step_ = std::min(batch, im2col_step);  // im2col_step_ = batch, 因为batch相对较小
 
     AT_ASSERTM(batch % im2col_step_ == 0, "batch(%d) must divide im2col_step(%d)", batch, im2col_step_);
     
     auto output = at::zeros({batch, num_query, num_heads, channels}, value.options());
 
     const int batch_n = im2col_step_;
-    auto output_n = output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});
+    auto output_n = output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});  // (1, bs, len_q, 8, 32)
     auto per_value_size = spatial_size * num_heads * channels;
     auto per_sample_loc_size = num_query * num_heads * num_levels * num_point * 2;
     auto per_attn_weight_size = num_query * num_heads * num_levels * num_point;
